@@ -7,6 +7,7 @@ Created on: 2018-02-02
 Analyzes a packet capture file (pcap), and prints out respective stats.
 """
 
+import dpkt
 import io
 import pcapy
 import sys
@@ -22,13 +23,33 @@ def main():
         raise Exception("No argument provided. Please a packet capture file for analysis.")
         sys.exit(0)
 
-    capture_file = pcapy.open_offline(sys.argv[1])
-    packet_bytes = capture_file.next()
-    packets = io.BytesIO(packet_bytes[1])
 
-    # Use a stream to read packet (BytesIO is my friend - but Charlie is too.)
-    for packet in packets:
-        print(packet)
+    capture_file = open(sys.argv[1])
+    packet_capture = dpkt.pcap.Reader(capture_file)
+
+    for header, raw_packet in packet_capture:
+        eth = dpkt.ethernet.Ethernet(raw_packet)
+        ip = eth.data
+        tcp = ip.data
+
+        tcp_packet = tcp_connection.TCPConnection(None, tcp.sport, None, tcp.dport)
+        print(tcp_packet)
+
+
+    # capture_file = pcapy.open_offline(sys.argv[1])
+    # header, raw_packet_bytes = capture_file.next()
+    #
+    # while header is not None:
+    #     packet = io.BytesIO(raw_packet_bytes)
+    #
+    #
+    #
+    #     header, raw_packet_bytes = capture_file.next()
+    #
+    # # Use a stream to read packet (BytesIO is my friend - but Charlie is too.)
+    # for packet in packets:
+    #     packet_decoded = bytes(packet).hex()
+    #     print(packet_decoded)
 
     # TCP Traffic Analysis - Output
     # print("Total number of connections: ")
