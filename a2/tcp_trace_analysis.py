@@ -20,11 +20,11 @@ def read_from_binary(file):
 def main():
 
     if len(sys.argv) < 2:
-        raise Exception("No argument provided. Please a packet capture file for analysis.")
+        raise Exception("No argument provided. Please provide a packet capture file for analysis.")
         sys.exit(0)
 
 
-    capture_file = open(sys.argv[1])
+    capture_file = open(sys.argv[1], 'rb')
     packet_capture = dpkt.pcap.Reader(capture_file)
 
     for header, raw_packet in packet_capture:
@@ -32,8 +32,10 @@ def main():
         ip = eth.data
         tcp = ip.data
 
-        tcp_packet = tcp_connection.TCPConnection(None, tcp.sport, None, tcp.dport)
-        print(tcp_packet)
+        #tcp_packet = tcp_connection.TCPConnection(None, tcp.sport, None, tcp.dport)
+        #print(tcp_packet)
+
+        print(tcp.sport, tcp.dport)
 
 
     # capture_file = pcapy.open_offline(sys.argv[1])
