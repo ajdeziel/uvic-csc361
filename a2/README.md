@@ -6,7 +6,6 @@
 
 ## Dependencies
 - Python 3.6 or higher
-- pcapy 0.12
 - dpkt 1.9.1
 
 ## How to compile and run
@@ -16,7 +15,12 @@
 
 3. Unzip submission folder. Once done, navigate to unzipped folder.
 
-4. Execute TCP Traffic Analysis program with the following command.
+4. Install the necessary dependencies. If Python 3.6 or higher is already installed, you may install **dpkt** with pip.
+    ```
+    pip install dpkt
+    ```
+
+5. Execute TCP Traffic Analysis program with the following command.
     ```
     python tcp_trace_analysis.py [capture_file]
     ```

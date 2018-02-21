@@ -18,28 +18,34 @@ import sys
 import tcp_connection
 
 
+# TODO: Find number of complete and reset TCP connections
+def connection_analysis():
+    return None
+
 def main():
     # Verify command line if argument is passed
     if len(sys.argv) < 2:
         raise Exception("No argument provided. Please provide a packet capture file for analysis.")
         sys.exit(0)
 
-    # Full steam ahead!
+    # Open capture file and read packets
     capture_file = open(sys.argv[1], 'rb')
     packet_capture = dpkt.pcap.Reader(capture_file)
 
     packet_count = 0
+    packet_list = []
 
     # Retrieve TCP data from within packet
     for header, raw_packet in packet_capture:
-        packet_count += 1
 
         eth = dpkt.ethernet.Ethernet(raw_packet)
         ip = eth.data
 
         # Verify for existence of TCP packets, exclude HTTP
+        # If TCP, retrieve and increase packet_count.
         if ip.p == dpkt.ip.IP_PROTO_TCP:
             tcp = ip.data
+            packet_count += 1
         else:
             continue
 
@@ -56,29 +62,17 @@ def main():
         fin_flag = (tcp.flags & dpkt.tcp.TH_FIN) != 0
         rst_flag = (tcp.flags & dpkt.tcp.TH_RST) != 0
 
-        #tcp_packet = tcp_connection.TCPConnection( tcp.sport, None, tcp.dport)
-        #print(tcp_packet)
+        tcp_packet = tcp_connection.TCPConnection(packet_count, src_addr, src_port, dest_addr, dest_port)
+        packet_list.append(tcp_packet)
 
-        # print(tcp.data)
-        print(str(src_addr) + ":" + str(src_port) + ", " + str(dest_addr) + ":" + str(dest_port))
+        # Test code to verify if flag verification is working
+        # UPDATE: It is!
+        if rst_flag:
+            print(str(src_addr) + ":" + str(src_port) + ", " + str(dest_addr) + ":" + str(dest_port))
+        else:
+            continue
 
     print(packet_count)
-
-
-    # capture_file = pcapy.open_offline(sys.argv[1])
-    # header, raw_packet_bytes = capture_file.next()
-    #
-    # while header is not None:
-    #     packet = io.BytesIO(raw_packet_bytes)
-    #
-    #
-    #
-    #     header, raw_packet_bytes = capture_file.next()
-    #
-    # # Use a stream to read packet (BytesIO is my friend - but Charlie is too.)
-    # for packet in packets:
-    #     packet_decoded = bytes(packet).hex()
-    #     print(packet_decoded)
 
     # TCP Traffic Analysis - Output
     # print("A) Total number of connections: ")
@@ -127,7 +121,7 @@ def main():
     # print("_________________________________________________")
     # print("\n")
     #
-    # print("D) Complete TCP Connections: ")
+    # print("D) Complete TCP Connections:")
     # print("\n")
     #
     # print("Minimum time duration: ")
