@@ -7,7 +7,7 @@ Created on: 2018-02-02
 Analyzes a packet capture file (pcap), and prints out respective stats.
 
 https://github.com/jeffsilverm/dpkt_doc/blob/master/decode_tcp.py
-http://engineering-notebook.readthedocs.io/en/latest/engineering/dpkt.html
+
 """
 
 import dpkt
@@ -18,8 +18,8 @@ import sys
 import tcp_connection
 
 
-# TODO: Find number of complete and reset TCP connections
-def connection_analysis():
+# TODO: Analyze TCP Connection for a given packet
+def tcp_connection_analysis():
     return None
 
 def main():
@@ -32,8 +32,12 @@ def main():
     capture_file = open(sys.argv[1], 'rb')
     packet_capture = dpkt.pcap.Reader(capture_file)
 
-    packet_count = 0
-    packet_list = []
+    connections = {}
+
+    # Tracker variables for Part C - General output
+    complete_connections = 0
+    reset_connections = 0
+    open_connections = 0
 
     # Retrieve TCP data from within packet
     for header, raw_packet in packet_capture:
@@ -45,7 +49,6 @@ def main():
         # If TCP, retrieve and increase packet_count.
         if ip.p == dpkt.ip.IP_PROTO_TCP:
             tcp = ip.data
-            packet_count += 1
         else:
             continue
 
@@ -57,43 +60,52 @@ def main():
         src_port = tcp.sport
         dest_port = tcp.dport
 
+        connection_tuple = (str(src_addr), str(src_port), str(dest_addr), str(dest_port))
+
         # Get TCP Flags
+        # Sourced from http://engineering-notebook.readthedocs.io/en/latest/engineering/dpkt.html
         syn_flag = (tcp.flags & dpkt.tcp.TH_SYN) != 0
         fin_flag = (tcp.flags & dpkt.tcp.TH_FIN) != 0
         rst_flag = (tcp.flags & dpkt.tcp.TH_RST) != 0
 
-        tcp_packet = tcp_connection.TCPConnection(packet_count, src_addr, src_port, dest_addr, dest_port)
-        packet_list.append(tcp_packet)
+        syn = 0
+        fin = 0
+        rst = 0
 
-        # Test code to verify if flag verification is working
-        # UPDATE: It is!
-        if rst_flag:
-            print(str(src_addr) + ":" + str(src_port) + ", " + str(dest_addr) + ":" + str(dest_port))
+        # Does connection tuple exist as key in dictionary?
+        # If not, create.
+        if str(connection_tuple) in connections.keys():
+            connections[connection_tuple].update(None, None)
         else:
-            continue
+            if syn_flag:
+                syn = 1
+            if fin_flag:
+                fin = 1
 
-    print(packet_count)
+            connections[connection_tuple] = tcp_connection.TCPConnection(syn_count=syn, fin_count=fin)
 
-    # TCP Traffic Analysis - Output
-    # print("A) Total number of connections: ")
+
+    # TODO: TCP Traffic Analysis - Output
+    # print("A) Total number of connections: " + len(connections.keys()) )
     #
     # print("\n")
     # print("_________________________________________________")
     # print("\n")
     #
     # print("B) Connections' details: ")
-    # for connect_item in connections:
+    # for ip_tuple, connect_item in connections.items():
     #     """
     #     If Source IP, Destination IP, Source Port, Dest Port are all unique,
     #     they indicate a new connection.
     #     """
-    #     print("Connection " )
-    #     print("Source Address: ")
-    #     print("Destination Address: ")
-    #     print("Source Port: ")
-    #     print("Destination Port: ")
+    #     print("Connection " + str(i))
+    #     print("Source Address: " + ip_tuple[0])
+    #     print("Destination Address: " + ip_tuple[2])
+    #     print("Source Port: " + ip_tuple[1])
+    #     print("Destination Port: " + ip_tuple[3])
     #
-    #     if status is valid:
+    #     # Output the following if connection is complete
+    #     if status is True:
     #         print("Status: ")
     #         print("Start time: ")
     #         print("End time: ")
@@ -105,6 +117,8 @@ def main():
     #         print("Number of data bytes sent from Destination to Source: ")
     #         print("Total number of data bytes: ")
     #         print("END")
+    #
+    #     if
     #         print("+++++++++++++++++++++++++++++++++")
     #
     # print("\n")
