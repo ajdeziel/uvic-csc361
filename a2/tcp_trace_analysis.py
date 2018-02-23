@@ -11,8 +11,6 @@ https://github.com/jeffsilverm/dpkt_doc/blob/master/decode_tcp.py
 """
 
 import dpkt
-import io
-import pcapy
 import socket
 import sys
 import tcp_connection
