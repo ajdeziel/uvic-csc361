@@ -10,9 +10,9 @@
 
 
 ## Dependencies
-There are no external dependencies required to run SmartClient.
+There are no external dependencies required to run smart_client.
 
-For SmartClient to compile and run, Python 3.6 or higher is required.
+For smart_client to compile and run, Python 3.6 or higher is required.
 
 
 ## How to run smart_client.py
