@@ -62,51 +62,75 @@ def main():
         fin_flag = (tcp.flags & dpkt.tcp.TH_FIN) != 0
         rst_flag = (tcp.flags & dpkt.tcp.TH_RST) != 0
 
+        syn = 0
+        fin = 0
+
+        # TODO: Fix connections.keys() for loop. Will not enter at all because it is empty at first.
+        # STATUS: ALMOST DONE, gotta work out complete connections.
+
+        # TODO: Fix by doing packet parsing outside, and then adding to/updating respective dictionary key-value pair.
+
+        if bool(connections) is False:
+            if syn_flag:
+                syn = 1
+            if fin_flag:
+                fin = 1
+            if rst_flag:
+                syn = 0
+                fin = 0
+
+            connections[connection_tuple] = tcp_connection.TCPConnection(syn_count=syn,
+                                                                         fin_count=fin,
+                                                                         start_time=None,
+                                                                         end_time=None,
+                                                                         sent_packets=[],
+                                                                         recvd_packets=[])
+
         # Does connection tuple exist as key in dictionary?
         # If not, create.
-        for key in connections.keys():
-            if (str(src_addr) and str(src_port) and str(dest_addr) and str(dest_port)) in key:
-                if connection_tuple == key:
-                    value = connections[connection_tuple]
-                    if syn_flag:
-                        value.syn_count += 1
-                    if fin_flag:
-                        value.fin_count += 1
-                    if rst_flag:
-                        value.syn_count = 0
-                        value.fin_count = 0
-                    value.sent_packets.append(tcp.data)
-                elif reverse_connection_tuple == key:
-                    value = connections[reverse_connection_tuple]
-                    if syn_flag:
-                        value.syn_count += 1
-                    if fin_flag:
-                        value.fin_count += 1
-                    if rst_flag:
-                        value.syn_count = 0
-                        value.fin_count = 0
-                    value.recvd_packets.append(tcp.data)
-                connections[connection_tuple] = value
-            else:
+        if (str(src_addr) and str(src_port) and str(dest_addr) and str(dest_port)) in connections.keys():
+            if connection_tuple in connections.keys():
+                value = connections[connection_tuple]
                 if syn_flag:
-                    syn = 1
+                    value.syn_count += 1
                 if fin_flag:
-                    fin = 1
+                    value.fin_count += 1
                 if rst_flag:
-                    syn = 0
-                    fin = 0
-                connections[connection_tuple] = tcp_connection.TCPConnection(syn_count=syn,
-                                                                             fin_count=fin,
-                                                                             start_time=None,
-                                                                             end_time=None,
-                                                                             sent_packets=[],
-                                                                             recvd_packets=[])
+                    value.syn_count = 0
+                    value.fin_count = 0
+                value.sent_packets.append(tcp.data)
+            elif reverse_connection_tuple in connections.keys():
+                value = connections[reverse_connection_tuple]
+                if syn_flag:
+                    value.syn_count += 1
+                if fin_flag:
+                    value.fin_count += 1
+                if rst_flag:
+                    value.syn_count = 0
+                    value.fin_count = 0
+                value.recvd_packets.append(tcp.data)
+            connections[connection_tuple] = value
+        else:
+            if syn_flag:
+                syn = 1
+            if fin_flag:
+                fin = 1
+            if rst_flag:
+                syn = 0
+                fin = 0
+
+            connections[connection_tuple] = tcp_connection.TCPConnection(syn_count=syn,
+                                                                         fin_count=fin,
+                                                                         start_time=None,
+                                                                         end_time=None,
+                                                                         sent_packets=[],
+                                                                         recvd_packets=[])
 
     # TODO: TCP Traffic Analysis - Output
     print("A) Total number of connections: " + str(len(connections.keys())))
 
     print("\n")
-    print("_________________________________________________")
+    print("-------------------------------------------------")
     print("\n")
 
     print("B) Connections' details: ")
