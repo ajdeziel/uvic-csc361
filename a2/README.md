@@ -20,7 +20,7 @@
     pip install dpkt
     ```
 
-5. Execute TCP Traffic Analysis program with the following command.
+5. Execute the TCP Traffic Analysis program with the following command.
     ```
     python tcp_trace_analysis.py [capture_file]
     ```

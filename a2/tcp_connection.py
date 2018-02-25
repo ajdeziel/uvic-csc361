@@ -4,6 +4,7 @@ tcp_connection.py
 Class for handling TCP connections in tcp_trace_analysis.py.
 """
 
+
 class TCPConnection:
     def __init__(self, syn_count, fin_count, start_time, end_time, sent_packets, recvd_packets):
         """
@@ -38,14 +39,32 @@ class TCPConnection:
         Get TCP connection's duration.
         :return: end_time of last packet received - start_time of first packet received
         """
-        return self.end_time - self.start_time
+        diff_datetime = self.end_time - self.start_time
+        elapsed_time = divmod(diff_datetime.total_seconds(), 60)
+        time_string = "{0} minutes, {1} seconds".format(int(elapsed_time[0]), elapsed_time[1])
 
-    def packet_count(self):
+        return time_string
+
+    def packets_sent_count(self):
         """
         Get total of packets sent from source to destination.
         :return: total packets sent from source to destination
         """
-        return len(self.packets)
+        return len(self.sent_packets)
+
+    def packets_recvd_count(self):
+        """
+        Get total of packets sent from destination to source.
+        :return: total packets sent from destination to source.
+        """
+        return len(self.recvd_packets)
+
+    def total_packet_count(self):
+        """
+        Get total number of packets for connection.
+        :return: total packets sent and received
+        """
+        return len(self.sent_packets) + len(self.recvd_packets)
 
     def bytes_sent(self):
         """

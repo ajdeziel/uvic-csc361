@@ -10,6 +10,7 @@ https://github.com/jeffsilverm/dpkt_doc/blob/master/decode_tcp.py
 
 """
 
+import datetime
 import dpkt
 import socket
 import sys
@@ -33,7 +34,7 @@ def main():
     connections = {}
 
     # Retrieve TCP data from within packet
-    for header, raw_packet in packet_capture:
+    for timestamp, raw_packet in packet_capture:
 
         eth = dpkt.ethernet.Ethernet(raw_packet)
         ip = eth.data
@@ -59,72 +60,111 @@ def main():
         # Get TCP Flags
         # Sourced from http://engineering-notebook.readthedocs.io/en/latest/engineering/dpkt.html
         syn_flag = (tcp.flags & dpkt.tcp.TH_SYN) != 0
+        ack_flag = (tcp.flags & dpkt.tcp.TH_ACK) != 0
         fin_flag = (tcp.flags & dpkt.tcp.TH_FIN) != 0
         rst_flag = (tcp.flags & dpkt.tcp.TH_RST) != 0
-
-        syn = 0
-        fin = 0
 
         # TODO: Fix connections.keys() for loop. Will not enter at all because it is empty at first.
         # STATUS: ALMOST DONE, gotta work out complete connections.
 
         # TODO: Fix by doing packet parsing outside, and then adding to/updating respective dictionary key-value pair.
 
+        # Default TCP state counter value
+        syn = 0
+        fin = 0
+
+        # If connections dict is empty, add initial key-value pair.
         if bool(connections) is False:
+            packets_sent = []
+            packets_received = []
+
             if syn_flag:
+                # First SYN encounter
                 syn = 1
+                # Get packet's timestamp
+                start_timestamp = datetime.datetime.utcfromtimestamp(timestamp)
+                packets_sent.append(tcp.data)
+            if ack_flag:
+                packets_sent.append(tcp.data)
             if fin_flag:
                 fin = 1
+                packets_received.append(tcp.data)
             if rst_flag:
                 syn = 0
                 fin = 0
 
             connections[connection_tuple] = tcp_connection.TCPConnection(syn_count=syn,
                                                                          fin_count=fin,
-                                                                         start_time=None,
+                                                                         start_time=start_timestamp,
                                                                          end_time=None,
-                                                                         sent_packets=[],
-                                                                         recvd_packets=[])
+                                                                         sent_packets=packets_sent,
+                                                                         recvd_packets=packets_received)
 
         # Does connection tuple exist as key in dictionary?
         # If not, create.
-        if (str(src_addr) and str(src_port) and str(dest_addr) and str(dest_port)) in connections.keys():
+        if connection_tuple in connections.keys():
+            value = connections[connection_tuple]
+            if syn_flag:
+                # If we haven't encounter a SYN connection, get timestamp as start_time
+                if value.syn_count < 1:
+                    value.start_time = datetime.datetime.utcfromtimestamp(timestamp)
+                value.syn_count += 1
+                value.sent_packets.append(tcp.data)
+            if ack_flag:
+                value.sent_packets.append(tcp.data)
+            if fin_flag:
+                value.fin_count += 1
+                value.recvd_packets.append(tcp.data)
+                value.end_time = datetime.datetime.utcfromtimestamp(timestamp)
+            if rst_flag:
+                value.syn_count = 0
+                value.fin_count = 0
+
             if connection_tuple in connections.keys():
-                value = connections[connection_tuple]
-                if syn_flag:
-                    value.syn_count += 1
-                if fin_flag:
-                    value.fin_count += 1
-                if rst_flag:
-                    value.syn_count = 0
-                    value.fin_count = 0
                 value.sent_packets.append(tcp.data)
             elif reverse_connection_tuple in connections.keys():
                 value = connections[reverse_connection_tuple]
                 if syn_flag:
+                    if value.syn_count < 1:
+                        value.start_time = datetime.datetime.utcfromtimestamp(timestamp)
                     value.syn_count += 1
+                    value.recvd_packets.append(tcp.data)
+                if ack_flag:
+                    value.recvd_packets.append(tcp.data)
                 if fin_flag:
                     value.fin_count += 1
+                    value.sent_packets.append(tcp.data)
+                    value.end_time = datetime.datetime.utcfromtimestamp(timestamp)
                 if rst_flag:
                     value.syn_count = 0
                     value.fin_count = 0
                 value.recvd_packets.append(tcp.data)
             connections[connection_tuple] = value
         else:
+            # New connection, initiate as such
+            packets_sent = []
+            packets_received = []
+
             if syn_flag:
                 syn = 1
+                # Get packet's timestamp
+                start_timestamp = datetime.datetime.utcfromtimestamp(timestamp)
+                packets_sent.append(tcp.data)
+            if ack_flag:
+                packets_sent.append(tcp.data)
             if fin_flag:
                 fin = 1
+                packets_received.append(tcp.data)
             if rst_flag:
                 syn = 0
                 fin = 0
 
             connections[connection_tuple] = tcp_connection.TCPConnection(syn_count=syn,
                                                                          fin_count=fin,
-                                                                         start_time=None,
+                                                                         start_time=start_timestamp,
                                                                          end_time=None,
-                                                                         sent_packets=[],
-                                                                         recvd_packets=[])
+                                                                         sent_packets=packets_sent,
+                                                                         recvd_packets=packets_received)
 
     # TODO: TCP Traffic Analysis - Output
     print("A) Total number of connections: " + str(len(connections.keys())))
@@ -164,14 +204,14 @@ def main():
             print("Start time: " + str(connect_item.start_time))
             print("End time: " + str(connect_item.end_time))
             print("Duration: " + str(connect_item.duration()))
-            print("Number of packets sent from Source to Destination: " + str(connect_item.src_dest_packet_count()))
-            print("Number of packets sent from Destination to Source: " + str(connect_item.dest_src_packet_count()))
+            print("Number of packets sent from Source to Destination: " + str(connect_item.packets_sent_count()))
+            print("Number of packets sent from Destination to Source: " + str(connect_item.packets_recvd_count()))
             print("Total number of packets: " + str(connect_item.total_packet_count()))
             print("Number of data bytes sent from Source to Destination: " + str(connect_item.bytes_sent()))
             print("Number of data bytes sent from Destination to Source: " + str(connect_item.bytes_received()))
             print("Total number of data bytes: " + str(connect_item.bytes_sent() + connect_item.bytes_received()))
-            print("END")
 
+        print("END")
         print("+++++++++++++++++++++++++++++++++")
 
         # if status is reset, then add to reset counter.
