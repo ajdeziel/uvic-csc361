@@ -17,8 +17,8 @@ import sys
 import tcp_connection
 
 
-# TODO: Analyze TCP Connection for a given packet
-def tcp_connection_analysis():
+# TODO: Create new TCPConnection object in dictionary
+def new_tcp_connection():
     return None
 
 def main():
@@ -72,6 +72,7 @@ def main():
         # Default TCP state counter value
         syn = 0
         fin = 0
+        reset_status = False
 
         # If connections dict is empty, add initial key-value pair.
         if bool(connections) is False:
@@ -90,11 +91,12 @@ def main():
                 fin = 1
                 packets_received.append(tcp.data)
             if rst_flag:
-                syn = 0
-                fin = 0
+                reset_status = True
+                packets_received.append(tcp.data)
 
             connections[connection_tuple] = tcp_connection.TCPConnection(syn_count=syn,
                                                                          fin_count=fin,
+                                                                         reset_flag=reset_status,
                                                                          start_time=start_timestamp,
                                                                          end_time=None,
                                                                          sent_packets=packets_sent,
@@ -117,12 +119,14 @@ def main():
                 value.recvd_packets.append(tcp.data)
                 value.end_time = datetime.datetime.utcfromtimestamp(timestamp)
             if rst_flag:
-                value.syn_count = 0
-                value.fin_count = 0
+                value.reset_flag = True
+                value.recvd_packets.append(tcp.data)
 
-            if connection_tuple in connections.keys():
-                value.sent_packets.append(tcp.data)
-            elif reverse_connection_tuple in connections.keys():
+            # Add value back to respective connection_tuple key to update connections dict
+            connections[connection_tuple] = value
+
+            # Update reverse connection key-value pair
+            if reverse_connection_tuple in connections.keys():
                 value = connections[reverse_connection_tuple]
                 if syn_flag:
                     if value.syn_count < 1:
@@ -136,10 +140,37 @@ def main():
                     value.sent_packets.append(tcp.data)
                     value.end_time = datetime.datetime.utcfromtimestamp(timestamp)
                 if rst_flag:
-                    value.syn_count = 0
-                    value.fin_count = 0
-                value.recvd_packets.append(tcp.data)
-            connections[connection_tuple] = value
+                    value.reset_flag = True
+                    value.recvd_packets.append(tcp.data)
+
+                # Add value back to respective reverse_connection_tuple key to update connections dict
+                connections[reverse_connection_tuple] = value
+            else:
+                # New connection, initiate as such
+                packets_sent = []
+                packets_received = []
+
+                if syn_flag:
+                    syn = 1
+                    # Get packet's timestamp
+                    start_timestamp = datetime.datetime.utcfromtimestamp(timestamp)
+                    packets_received.append(tcp.data)
+                if ack_flag:
+                    packets_received.append(tcp.data)
+                if fin_flag:
+                    fin = 1
+                    packets_sent.append(tcp.data)
+                if rst_flag:
+                    reset_status = True
+                    packets_sent.append(tcp.data)
+
+                connections[connection_tuple] = tcp_connection.TCPConnection(syn_count=syn,
+                                                                             fin_count=fin,
+                                                                             reset_flag=reset_status,
+                                                                             start_time=start_timestamp,
+                                                                             end_time=None,
+                                                                             sent_packets=packets_sent,
+                                                                             recvd_packets=packets_received)
         else:
             # New connection, initiate as such
             packets_sent = []
@@ -156,11 +187,11 @@ def main():
                 fin = 1
                 packets_received.append(tcp.data)
             if rst_flag:
-                syn = 0
-                fin = 0
+                reset_status = True
 
             connections[connection_tuple] = tcp_connection.TCPConnection(syn_count=syn,
                                                                          fin_count=fin,
+                                                                         reset_flag=reset_status,
                                                                          start_time=start_timestamp,
                                                                          end_time=None,
                                                                          sent_packets=packets_sent,
@@ -180,15 +211,18 @@ def main():
     complete_count = 0
     reset_count = 0
     open_count = 0
-    i = 0
+    connect_count = 0
+
+    # Dict for tracking complete connections
+    complete_connections = {}
 
     for ip_tuple, connect_item in connections.items():
-        i += 1
+        connect_count += 1
         """
         If Source IP, Destination IP, Source Port, Dest Port are all unique,
         they indicate a new connection.
         """
-        print("Connection " + str(i))
+        print("Connection " + str(connect_count))
         print("Source Address: " + ip_tuple[0])
         print("Destination Address: " + ip_tuple[2])
         print("Source Port: " + ip_tuple[1])
@@ -200,6 +234,8 @@ def main():
         # Output the following if connection is complete
         if complete_status is True:
             complete_count += 1
+            complete_connections[ip_tuple] = connect_item
+
             print("Status: S" + str(connect_item.syn_count) + "F" + str(connect_item.fin_count))
             print("Start time: " + str(connect_item.start_time))
             print("End time: " + str(connect_item.end_time))
@@ -215,7 +251,7 @@ def main():
         print("+++++++++++++++++++++++++++++++++")
 
         # if status is reset, then add to reset counter.
-        if connect_item.syn_count == 0 and connect_item.fin_count == 0:
+        if connect_item.reset_flag is True:
             reset_count += 1
 
         if (connect_item.syn_count <= 1 and connect_item.fin_count == 0) \
@@ -223,7 +259,7 @@ def main():
             open_count += 1
 
     print("\n")
-    print("_________________________________________________")
+    print("-------------------------------------------------")
     print("\n")
 
     print("C) General: ")
@@ -233,7 +269,7 @@ def main():
     print("Number of TCP connections that were still open when the trace capture ended: " + str(open_count))
     #
     # print("\n")
-    # print("_________________________________________________")
+    # print("-------------------------------------------------")
     # print("\n")
     #
     # print("D) Complete TCP Connections:")
@@ -261,7 +297,7 @@ def main():
     # print("Mean receive window sizes including both send/received: ")
     # print("Maximum receive window sizes including both send/received: ")
     #
-    # print("_________________________________________________")
+    # print("-------------------------------------------------")
 
 
 if __name__ == '__main__':
