@@ -21,18 +21,15 @@ import tcp_connection
 def new_tcp_connection():
     return None
 
-def main():
-    # Verify command line if argument is passed
-    if len(sys.argv) < 2:
-        raise Exception("No argument provided. Please provide a packet capture file for analysis.")
-        sys.exit(0)
 
-    # Open capture file and read packets
-    capture_file = open(sys.argv[1], 'rb')
-    packet_capture = dpkt.pcap.Reader(capture_file)
-
+def tcp_connection_analysis(packet_capture):
+    """
+    Analyze packet capture file, and organize into dictionary with
+    connection tuple as key and TCPConnection class object as value.
+    :param packet_capture: Packet capture file opened by reader
+    :return: dictionary of connections
+    """
     connections = {}
-
     # Retrieve TCP data from within packet
     for timestamp, raw_packet in packet_capture:
 
@@ -196,6 +193,23 @@ def main():
                                                                          end_time=None,
                                                                          sent_packets=packets_sent,
                                                                          recvd_packets=packets_received)
+
+    return connections
+
+
+def main():
+    # Verify command line if argument is passed
+    if len(sys.argv) < 2:
+        raise Exception("No argument provided. Please provide a packet capture file for analysis.")
+        sys.exit(0)
+
+    # Open capture file and read packets
+    capture_file = open(sys.argv[1], 'rb')
+    packet_capture = dpkt.pcap.Reader(capture_file)
+
+    # Analyze TCP packet capture file
+    # Organize into dictionary of connection tuple(key)-TCPConnection(value) pairs
+    connections = tcp_connection_analysis(packet_capture)
 
     # TODO: TCP Traffic Analysis - Output
     print("A) Total number of connections: " + str(len(connections.keys())))
