@@ -1,6 +1,9 @@
 """
 tcp_connection.py
 
+Author: AJ Po-Deziel
+Created on: 2018-02-02
+
 Class for handling TCP connections in tcp_trace_analysis.py.
 """
 
@@ -42,10 +45,8 @@ class TCPConnection:
         :return: end_time of last packet received - start_time of first packet received
         """
         diff_datetime = self.end_time - self.start_time
-        elapsed_time = divmod(diff_datetime.total_seconds(), 60)
-        time_string = "{0} minutes, {1} seconds".format(int(elapsed_time[0]), elapsed_time[1])
-
-        return time_string
+        elapsed_time = diff_datetime.total_seconds()
+        return elapsed_time
 
     def packets_sent_count(self):
         """

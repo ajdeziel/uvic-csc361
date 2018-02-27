@@ -4,7 +4,7 @@ tcp_trace_analysis.py
 Author: AJ Po-Deziel
 Created on: 2018-02-02
 
-Analyzes a packet capture file (pcap), and prints out respective stats.
+Analyzes a packet capture file (pcap), and prints out respective statistics.
 
 https://github.com/jeffsilverm/dpkt_doc/blob/master/decode_tcp.py
 
@@ -222,35 +222,38 @@ def main():
         If Source IP, Destination IP, Source Port, Dest Port are all unique,
         they indicate a new connection.
         """
-        print("Connection " + str(connect_count))
-        print("Source Address: " + ip_tuple[0])
-        print("Destination Address: " + ip_tuple[2])
-        print("Source Port: " + ip_tuple[1])
-        print("Destination Port: " + ip_tuple[3])
+        print("Connection {0}".format(connect_count))
+        print("Source Address: {0}".format(ip_tuple[0]))
+        print("Destination Address: {0}".format(ip_tuple[2]))
+        print("Source Port: {0}".format(ip_tuple[1]))
+        print("Destination Port: {0}".format(ip_tuple[3]))
 
         # Evaluate if connection is complete
-        complete_status = connect_item.tcp_complete()
+        # complete_status = connect_item.tcp_complete()
 
         # Output the following if connection is complete
-        if complete_status is True:
+        if connect_item.tcp_complete() is True:
             complete_count += 1
             complete_connections[ip_tuple] = connect_item
 
-            print("Status: S" + str(connect_item.syn_count) + "F" + str(connect_item.fin_count))
-            print("Start time: " + str(connect_item.start_time))
-            print("End time: " + str(connect_item.end_time))
-            print("Duration: " + str(connect_item.duration()))
-            print("Number of packets sent from Source to Destination: " + str(connect_item.packets_sent_count()))
-            print("Number of packets sent from Destination to Source: " + str(connect_item.packets_recvd_count()))
-            print("Total number of packets: " + str(connect_item.total_packet_count()))
-            print("Number of data bytes sent from Source to Destination: " + str(connect_item.bytes_sent()))
-            print("Number of data bytes sent from Destination to Source: " + str(connect_item.bytes_received()))
-            print("Total number of data bytes: " + str(connect_item.bytes_sent() + connect_item.bytes_received()))
+            if connect_item.reset_flag is True:
+                print("Status: S{0}F{1} + R".format(connect_item.syn_count, connect_item.fin_count))
+            elif connect_item.reset_flag is False:
+                print("Status: S{0}F{1}".format(connect_item.syn_count, connect_item.fin_count))
+            print("Start time: {0}".format(connect_item.start_time))
+            print("End time: {0}".format(connect_item.end_time))
+            print("Duration: {0} seconds" .format(connect_item.duration()))
+            print("Number of packets sent from Source to Destination: {0}".format(connect_item.packets_sent_count()))
+            print("Number of packets sent from Destination to Source: {0}".format(connect_item.packets_recvd_count()))
+            print("Total number of packets: {0}".format(connect_item.total_packet_count()))
+            print("Number of data bytes sent from Source to Destination: {0}".format(connect_item.bytes_sent()))
+            print("Number of data bytes sent from Destination to Source: {0}".format(connect_item.bytes_received()))
+            print("Total number of data bytes: {0}".format(connect_item.bytes_sent() + connect_item.bytes_received()))
 
         print("END")
         print("+++++++++++++++++++++++++++++++++")
 
-        # if status is reset, then add to reset counter.
+        # If status is reset, then add to reset counter.
         if connect_item.reset_flag is True:
             reset_count += 1
 
@@ -264,40 +267,59 @@ def main():
 
     print("C) General: ")
     print("\n")
-    print("Total number of complete TCP connections: " + str(complete_count))
-    print("Number of reset TCP connections: " + str(reset_count))
-    print("Number of TCP connections that were still open when the trace capture ended: " + str(open_count))
-    #
-    # print("\n")
-    # print("-------------------------------------------------")
-    # print("\n")
-    #
-    # print("D) Complete TCP Connections:")
-    # print("\n")
-    #
-    # print("Minimum time duration: ")
-    # print("Mean time duration: ")
-    # print("Maximum time duration: ")
-    #
-    # print("\n")
-    #
-    # print("Minimum RTT values including both send/received: ")
-    # print("Mean RTT values including both send/received: ")
-    # print("Maximum RTT values including both send/received: ")
-    #
-    # print("\n")
-    #
-    # print("Minimum number of packets including both send/received: ")
-    # print("Mean number of packets including both send/received: ")
-    # print("Maximum number of packets including both send/received: ")
-    #
-    # print("\n")
-    #
-    # print("Minimum receive window sizes including both send/received: ")
-    # print("Mean receive window sizes including both send/received: ")
-    # print("Maximum receive window sizes including both send/received: ")
-    #
-    # print("-------------------------------------------------")
+    print("Total number of complete TCP connections: {0}".format(complete_count))
+    print("Number of reset TCP connections: {0}".format(reset_count))
+    print("Number of TCP connections that were still open when the trace capture ended: {0}".format(open_count))
+
+    print("\n")
+    print("-------------------------------------------------")
+    print("\n")
+
+    print("D) Complete TCP Connections:")
+    print("\n")
+
+    connection_durations = []
+    connection_packets = []
+
+    # Retrieve duration, total packets from each connection
+    for ip_tuple, connect_item in complete_connections.items():
+        connection_durations.append(connect_item.duration())
+        connection_packets.append(connect_item.total_packet_count())
+
+    # Put connection durations, packets in order from shortest to longest
+    connection_durations.sort()
+    connection_packets.sort()
+
+    # Get mean time duration for complete connections
+    duration_sum = sum(connection_durations)
+    mean_duration = duration_sum / len(connection_durations)
+
+    # Get mean packet count for complete connections
+    packet_sum = sum(connection_packets)
+    mean_packet_count = packet_sum / len(connection_packets)
+
+    print("Minimum time duration: {0} seconds".format(connection_durations[0]))
+    print("Mean time duration: {0:.6f} seconds".format(mean_duration))
+    print("Maximum time duration: {0} seconds" .format(connection_durations[-1]))
+    print("\n")
+
+    print("Minimum RTT values including both send/received: {0}")
+    print("Mean RTT values including both send/received: {0}")
+    print("Maximum RTT values including both send/received: {0}")
+
+    print("\n")
+
+    print("Minimum number of packets including both send/received: {0}".format(connection_packets[0]))
+    print("Mean number of packets including both send/received: {0}".format(mean_packet_count))
+    print("Maximum number of packets including both send/received: {0}".format(connection_packets[-1]))
+
+    print("\n")
+
+    print("Minimum receive window sizes including both send/received: {0}")
+    print("Mean receive window sizes including both send/received: {0}")
+    print("Maximum receive window sizes including both send/received: {0}")
+
+    print("-------------------------------------------------")
 
 
 if __name__ == '__main__':
