@@ -17,9 +17,55 @@ import sys
 import tcp_connection
 
 
-# TODO: Create new TCPConnection object in dictionary
-def new_tcp_connection():
-    return None
+def new_tcp_connection(timestamp, tcp_data, tcp_window, syn, syn_flag, ack_flag, fin, fin_flag,
+                       rst_flag, reset_status):
+    """
+    Create a new TCPConnection object for use in connections dictionary
+    at respective connection tuple.
+
+    :param timestamp: Timestamp of packet
+    :param tcp_data: Data within TCP packet
+    :param tcp_window: Size of Window field in TCP header
+    :param syn: SYN count
+    :param syn_flag: Presence of SYN flag in packet
+    :param ack_flag: Presence of ACK flag in packet
+    :param fin: FIN count
+    :param fin_flag: Presence of FIN flag in packet
+    :param rst_flag: Presence of RST flag in packet
+    :param reset_status: Indication if connection has ever been reset
+    :return: new TCPConnection object
+    """
+    packets_sent = []
+    packets_received = []
+    window_sizes = []
+    start_timestamp = None
+
+    if syn_flag:
+        # First SYN encounter
+        syn = 1
+        # Get packet's timestamp
+        start_timestamp = datetime.datetime.utcfromtimestamp(timestamp)
+        packets_sent.append(tcp_data)
+    if ack_flag:
+        packets_sent.append(tcp_data)
+    if fin_flag:
+        fin = 1
+        packets_received.append(tcp_data)
+    if rst_flag:
+        reset_status = True
+        packets_received.append(tcp_data)
+
+    # Get window size from TCP header
+    window_sizes.append(tcp_window)
+
+    return tcp_connection.TCPConnection(syn_count=syn,
+                                        fin_count=fin,
+                                        reset_flag=reset_status,
+                                        start_time=start_timestamp,
+                                        end_time=None,
+                                        window_sizes=window_sizes,
+                                        sent_packets=packets_sent,
+                                        recvd_packets=packets_received)
 
 
 def tcp_connection_analysis(packet_capture):
@@ -61,11 +107,6 @@ def tcp_connection_analysis(packet_capture):
         fin_flag = (tcp.flags & dpkt.tcp.TH_FIN) != 0
         rst_flag = (tcp.flags & dpkt.tcp.TH_RST) != 0
 
-        # TODO: Fix connections.keys() for loop. Will not enter at all because it is empty at first.
-        # STATUS: ALMOST DONE, gotta work out complete connections.
-
-        # TODO: Fix by doing packet parsing outside, and then adding to/updating respective dictionary key-value pair.
-
         # Default TCP state counter value
         syn = 0
         fin = 0
@@ -73,36 +114,9 @@ def tcp_connection_analysis(packet_capture):
 
         # If connections dict is empty, add initial key-value pair.
         if bool(connections) is False:
-            packets_sent = []
-            packets_received = []
-            window_sizes = []
-
-            if syn_flag:
-                # First SYN encounter
-                syn = 1
-                # Get packet's timestamp
-                start_timestamp = datetime.datetime.utcfromtimestamp(timestamp)
-                packets_sent.append(tcp.data)
-            if ack_flag:
-                packets_sent.append(tcp.data)
-            if fin_flag:
-                fin = 1
-                packets_received.append(tcp.data)
-            if rst_flag:
-                reset_status = True
-                packets_received.append(tcp.data)
-
-            # Get window size from TCP header
-            window_sizes.append(tcp.win)
-
-            connections[connection_tuple] = tcp_connection.TCPConnection(syn_count=syn,
-                                                                         fin_count=fin,
-                                                                         reset_flag=reset_status,
-                                                                         start_time=start_timestamp,
-                                                                         end_time=None,
-                                                                         window_sizes=window_sizes,
-                                                                         sent_packets=packets_sent,
-                                                                         recvd_packets=packets_received)
+            # New connection, initiate as such.
+            connections[connection_tuple] = new_tcp_connection(timestamp, tcp.data, tcp.win, syn, syn_flag,
+                                                               ack_flag, fin, fin_flag, reset_status, rst_flag)
 
         # Does connection tuple exist as key in dictionary?
         # If not, create.
@@ -155,65 +169,12 @@ def tcp_connection_analysis(packet_capture):
                 connections[reverse_connection_tuple] = value
             else:
                 # New connection, initiate as such
-                packets_sent = []
-                packets_received = []
-                window_sizes = []
-
-                if syn_flag:
-                    syn = 1
-                    # Get packet's timestamp
-                    start_timestamp = datetime.datetime.utcfromtimestamp(timestamp)
-                    packets_received.append(tcp.data)
-                if ack_flag:
-                    packets_received.append(tcp.data)
-                if fin_flag:
-                    fin = 1
-                    packets_sent.append(tcp.data)
-                if rst_flag:
-                    reset_status = True
-                    packets_sent.append(tcp.data)
-
-                # Get window size from TCP header
-                window_sizes.append(tcp.win)
-
-                connections[connection_tuple] = tcp_connection.TCPConnection(syn_count=syn,
-                                                                             fin_count=fin,
-                                                                             reset_flag=reset_status,
-                                                                             start_time=start_timestamp,
-                                                                             end_time=None,
-                                                                             window_sizes=window_sizes,
-                                                                             sent_packets=packets_sent,
-                                                                             recvd_packets=packets_received)
+                connections[connection_tuple] = new_tcp_connection(timestamp, tcp.data, tcp.win, syn, syn_flag,
+                                                                   ack_flag, fin, fin_flag, reset_status, rst_flag)
         else:
             # New connection, initiate as such
-            packets_sent = []
-            packets_received = []
-            window_sizes = []
-
-            if syn_flag:
-                syn = 1
-                # Get packet's timestamp
-                start_timestamp = datetime.datetime.utcfromtimestamp(timestamp)
-                packets_sent.append(tcp.data)
-            if ack_flag:
-                packets_sent.append(tcp.data)
-            if fin_flag:
-                fin = 1
-                packets_received.append(tcp.data)
-            if rst_flag:
-                reset_status = True
-
-            # Get window size from TCP header
-            window_sizes.append(tcp.win)
-
-            connections[connection_tuple] = tcp_connection.TCPConnection(syn_count=syn,
-                                                                         fin_count=fin,
-                                                                         reset_flag=reset_status,
-                                                                         start_time=start_timestamp,
-                                                                         end_time=None,
-                                                                         window_sizes=window_sizes,
-                                                                         sent_packets=packets_sent,
-                                                                         recvd_packets=packets_received)
+            connections[connection_tuple] = new_tcp_connection(timestamp, tcp.data, tcp.win, syn, syn_flag,
+                                                               ack_flag, fin, fin_flag, reset_status, rst_flag)
 
     return connections
 
@@ -277,7 +238,7 @@ def main():
                 print("Status: S{0}F{1}".format(connect_item.syn_count, connect_item.fin_count))
             print("Start time: {0}".format(connect_item.start_time))
             print("End time: {0}".format(connect_item.end_time))
-            print("Duration: {0} seconds" .format(connect_item.duration()))
+            print("Duration: {0} seconds".format(connect_item.duration()))
             print("Number of packets sent from Source to Destination: {0}".format(connect_item.packets_sent_count()))
             print("Number of packets sent from Destination to Source: {0}".format(connect_item.packets_recvd_count()))
             print("Total number of packets: {0}".format(connect_item.total_packet_count()))
@@ -342,7 +303,7 @@ def main():
 
     print("Minimum time duration: {0} seconds".format(connection_durations[0]))
     print("Mean time duration: {0:.6f} seconds".format(mean_duration))
-    print("Maximum time duration: {0} seconds" .format(connection_durations[-1]))
+    print("Maximum time duration: {0} seconds".format(connection_durations[-1]))
     print("\n")
 
     print("Minimum RTT values including both send/received: {0}")
