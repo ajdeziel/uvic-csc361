@@ -75,6 +75,7 @@ def tcp_connection_analysis(packet_capture):
         if bool(connections) is False:
             packets_sent = []
             packets_received = []
+            window_sizes = []
 
             if syn_flag:
                 # First SYN encounter
@@ -91,11 +92,15 @@ def tcp_connection_analysis(packet_capture):
                 reset_status = True
                 packets_received.append(tcp.data)
 
+            # Get window size from TCP header
+            window_sizes.append(tcp.win)
+
             connections[connection_tuple] = tcp_connection.TCPConnection(syn_count=syn,
                                                                          fin_count=fin,
                                                                          reset_flag=reset_status,
                                                                          start_time=start_timestamp,
                                                                          end_time=None,
+                                                                         window_sizes=window_sizes,
                                                                          sent_packets=packets_sent,
                                                                          recvd_packets=packets_received)
 
@@ -119,6 +124,9 @@ def tcp_connection_analysis(packet_capture):
                 value.reset_flag = True
                 value.recvd_packets.append(tcp.data)
 
+            # Add packet window size to list
+            value.window_sizes.append(tcp.win)
+
             # Add value back to respective connection_tuple key to update connections dict
             connections[connection_tuple] = value
 
@@ -140,12 +148,16 @@ def tcp_connection_analysis(packet_capture):
                     value.reset_flag = True
                     value.recvd_packets.append(tcp.data)
 
+                # Add packet window size to list
+                value.window_sizes.append(tcp.win)
+
                 # Add value back to respective reverse_connection_tuple key to update connections dict
                 connections[reverse_connection_tuple] = value
             else:
                 # New connection, initiate as such
                 packets_sent = []
                 packets_received = []
+                window_sizes = []
 
                 if syn_flag:
                     syn = 1
@@ -161,17 +173,22 @@ def tcp_connection_analysis(packet_capture):
                     reset_status = True
                     packets_sent.append(tcp.data)
 
+                # Get window size from TCP header
+                window_sizes.append(tcp.win)
+
                 connections[connection_tuple] = tcp_connection.TCPConnection(syn_count=syn,
                                                                              fin_count=fin,
                                                                              reset_flag=reset_status,
                                                                              start_time=start_timestamp,
                                                                              end_time=None,
+                                                                             window_sizes=window_sizes,
                                                                              sent_packets=packets_sent,
                                                                              recvd_packets=packets_received)
         else:
             # New connection, initiate as such
             packets_sent = []
             packets_received = []
+            window_sizes = []
 
             if syn_flag:
                 syn = 1
@@ -186,11 +203,15 @@ def tcp_connection_analysis(packet_capture):
             if rst_flag:
                 reset_status = True
 
+            # Get window size from TCP header
+            window_sizes.append(tcp.win)
+
             connections[connection_tuple] = tcp_connection.TCPConnection(syn_count=syn,
                                                                          fin_count=fin,
                                                                          reset_flag=reset_status,
                                                                          start_time=start_timestamp,
                                                                          end_time=None,
+                                                                         window_sizes=window_sizes,
                                                                          sent_packets=packets_sent,
                                                                          recvd_packets=packets_received)
 
@@ -294,15 +315,18 @@ def main():
 
     connection_durations = []
     connection_packets = []
+    connection_windows = []
 
-    # Retrieve duration, total packets from each connection
+    # Retrieve duration, total packets, window sizes from each connection
     for ip_tuple, connect_item in complete_connections.items():
         connection_durations.append(connect_item.duration())
         connection_packets.append(connect_item.total_packet_count())
+        connection_windows.extend(connect_item.window_sizes)
 
     # Put connection durations, packets in order from shortest to longest
     connection_durations.sort()
     connection_packets.sort()
+    connection_windows.sort()
 
     # Get mean time duration for complete connections
     duration_sum = sum(connection_durations)
@@ -311,6 +335,10 @@ def main():
     # Get mean packet count for complete connections
     packet_sum = sum(connection_packets)
     mean_packet_count = packet_sum / len(connection_packets)
+
+    # Get mean window size for complete connections
+    window_sum = sum(connection_windows)
+    mean_window_size = window_sum / len(connection_windows)
 
     print("Minimum time duration: {0} seconds".format(connection_durations[0]))
     print("Mean time duration: {0:.6f} seconds".format(mean_duration))
@@ -324,14 +352,14 @@ def main():
     print("\n")
 
     print("Minimum number of packets including both send/received: {0}".format(connection_packets[0]))
-    print("Mean number of packets including both send/received: {0}".format(mean_packet_count))
+    print("Mean number of packets including both send/received: {0:.6f}".format(mean_packet_count))
     print("Maximum number of packets including both send/received: {0}".format(connection_packets[-1]))
 
     print("\n")
 
-    print("Minimum receive window sizes including both send/received: {0}")
-    print("Mean receive window sizes including both send/received: {0}")
-    print("Maximum receive window sizes including both send/received: {0}")
+    print("Minimum receive window sizes including both send/received: {0}".format(connection_windows[0]))
+    print("Mean receive window sizes including both send/received: {0:.6f}".format(mean_window_size))
+    print("Maximum receive window sizes including both send/received: {0}".format(connection_windows[-1]))
 
     print("-------------------------------------------------")
 
