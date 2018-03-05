@@ -67,7 +67,7 @@ def new_tcp_connection(timestamp, tcp, syn, syn_flag, ack_flag, fin, fin_flag,
     return tcp_connection.TCPConnection(syn_count=syn,
                                         fin_count=fin,
                                         sequence_encountered=sequence_num,
-                                        rtt=None,
+                                        rtt=[],
                                         reset_flag=reset_status,
                                         start_time=start_timestamp,
                                         end_time=None,
@@ -76,8 +76,24 @@ def new_tcp_connection(timestamp, tcp, syn, syn_flag, ack_flag, fin, fin_flag,
                                         recvd_packets=packets_received)
 
 
-def tcp_rtt_analysis(ack_num, ack_timestamp):
-    pass
+def tcp_rtt_analysis(sequence_nums, ack_num, ack_timestamp):
+    """
+    Perform Round Trip Time (RTT) analysis of packet in connection
+    upon reception of packet with ACK flag.
+    :param sequence_nums: List of sequence numbers sent out
+    :param ack_num: Acknowledgement number in current TCP packet
+    :param ack_timestamp: Timestamp on current TCP packet with ACK flag
+    :return: Round trip time in seconds
+    """
+    for sequence in [*sequence_nums]:
+        # If Acknowledgement Number is 1 more than any of the sequence numbers
+        # in connection, a Round Trip has been completed.
+        if sequence + 1 == ack_num:
+            ack_time = datetime.datetime.utcfromtimestamp(ack_timestamp)
+            raw_rtt = ack_time - sequence_nums[sequence]
+            return raw_rtt.total_seconds()
+        else:
+            continue
 
 
 def tcp_connection_analysis(packet_capture):
@@ -88,6 +104,7 @@ def tcp_connection_analysis(packet_capture):
     :return: dictionary of connections
     """
     connections = {}
+
     # Retrieve TCP data from within packet
     for timestamp, raw_packet in packet_capture:
 
@@ -142,6 +159,10 @@ def tcp_connection_analysis(packet_capture):
                 value.sent_packets.append(tcp.data)
             if ack_flag:
                 value.sent_packets.append(tcp.data)
+                # Evaluate RTT
+                rtt = tcp_rtt_analysis(value.sequence_encountered, tcp.ack, timestamp)
+                if rtt is not None:
+                    value.rtt.append(rtt)
             if fin_flag:
                 value.fin_count += 1
                 value.recvd_packets.append(tcp.data)
@@ -166,6 +187,9 @@ def tcp_connection_analysis(packet_capture):
                     value.recvd_packets.append(tcp.data)
                 if ack_flag:
                     value.recvd_packets.append(tcp.data)
+                    rtt = tcp_rtt_analysis(value.sequence_encountered, tcp.ack, timestamp)
+                    if rtt is not None:
+                        value.rtt.append(rtt)
                 if fin_flag:
                     value.fin_count += 1
                     value.sent_packets.append(tcp.data)
@@ -179,10 +203,10 @@ def tcp_connection_analysis(packet_capture):
 
                 # Add value back to respective reverse_connection_tuple key to update connections dict
                 connections[reverse_connection_tuple] = value
-            else:
-                # New connection, initiate as such
-                connections[connection_tuple] = new_tcp_connection(timestamp, tcp, syn, syn_flag,
-                                                                   ack_flag, fin, fin_flag, reset_status, rst_flag)
+            elif reverse_connection_tuple not in connections.keys():
+                connections[reverse_connection_tuple] = new_tcp_connection(timestamp, tcp, syn, syn_flag, ack_flag,
+                                                                           fin, fin_flag, reset_status, rst_flag)
+
         else:
             # New connection, initiate as such
             connections[connection_tuple] = new_tcp_connection(timestamp, tcp, syn, syn_flag,
@@ -205,7 +229,7 @@ def main():
     # Organize into dictionary of connection tuple(key)-TCPConnection(value) pairs
     connections = tcp_connection_analysis(packet_capture)
 
-    # TODO: TCP Traffic Analysis - Output
+    # TCP Traffic Analysis - Output
     print("A) Total number of connections: " + str(len(connections.keys())))
 
     print("\n")
@@ -284,23 +308,31 @@ def main():
     print("\n")
 
     connection_durations = []
+    connection_rtt = []
     connection_packets = []
     connection_windows = []
 
     # Retrieve duration, total packets, window sizes from each connection
     for ip_tuple, connect_item in complete_connections.items():
         connection_durations.append(connect_item.duration())
+        connection_rtt.extend(connect_item.rtt)
         connection_packets.append(connect_item.total_packet_count())
         connection_windows.extend(connect_item.window_sizes)
 
-    # Put connection durations, packets in order from shortest to longest
+    # Put connection durations, RTT, packet sizes, window sizes
+    # in order from shortest to longest
     connection_durations.sort()
+    connection_rtt.sort()
     connection_packets.sort()
     connection_windows.sort()
 
     # Get mean time duration for complete connections
     duration_sum = sum(connection_durations)
     mean_duration = duration_sum / len(connection_durations)
+
+    # Get mean RTT for complete connections
+    rtt_sum = sum(connection_rtt)
+    mean_rtt = rtt_sum / len(connection_rtt)
 
     # Get mean packet count for complete connections
     packet_sum = sum(connection_packets)
@@ -313,11 +345,12 @@ def main():
     print("Minimum time duration: {0} seconds".format(connection_durations[0]))
     print("Mean time duration: {0:.6f} seconds".format(mean_duration))
     print("Maximum time duration: {0} seconds".format(connection_durations[-1]))
+
     print("\n")
 
-    print("Minimum RTT values including both send/received: {0}")
-    print("Mean RTT values including both send/received: {0}")
-    print("Maximum RTT values including both send/received: {0}")
+    print("Minimum RTT values including both send/received: {0:.6f}".format(connection_rtt[0]))
+    print("Mean RTT values including both send/received: {0:.6f}".format(mean_rtt))
+    print("Maximum RTT values including both send/received: {0:.6f}".format(connection_rtt[-1]))
 
     print("\n")
 
