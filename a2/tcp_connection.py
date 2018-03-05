@@ -9,13 +9,15 @@ Class for handling TCP connections in tcp_trace_analysis.py.
 
 
 class TCPConnection:
-    def __init__(self, syn_count, fin_count, reset_flag, start_time, end_time, window_sizes, sent_packets, recvd_packets):
+    def __init__(self, syn_count, fin_count, sequence_encountered, rtt, reset_flag, start_time, end_time, window_sizes,
+                 sent_packets, recvd_packets):
         """
         Class initialization of TCPConnection.
 
         :param syn_count: SYN flag counter
         :param fin_count: FIN flag counter
-        :param reset_flag: If RST flag is encountered in connection, set to True.
+        :param sequence_encountered: Sequence number from SYN encounters
+        :param reset_flag: If RST flag is encountered in connection, set to True
         :param start_time: Start time of first packet in connection
         :param end_time: End time of last packet in connection
         :param sent_packets: List of packets from source to destination
@@ -23,6 +25,8 @@ class TCPConnection:
         """
         self.syn_count = syn_count
         self.fin_count = fin_count
+        self.sequence_encountered = sequence_encountered
+        self.rtt = rtt
         self.reset_flag = reset_flag
         self.start_time = start_time
         self.end_time = end_time
@@ -89,3 +93,4 @@ class TCPConnection:
         for packet in self.recvd_packets:
             total_size += len(packet)
         return total_size
+

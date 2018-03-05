@@ -17,15 +17,14 @@ import sys
 import tcp_connection
 
 
-def new_tcp_connection(timestamp, tcp_data, tcp_window, syn, syn_flag, ack_flag, fin, fin_flag,
+def new_tcp_connection(timestamp, tcp, syn, syn_flag, ack_flag, fin, fin_flag,
                        rst_flag, reset_status):
     """
     Create a new TCPConnection object for use in connections dictionary
     at respective connection tuple.
 
     :param timestamp: Timestamp of packet
-    :param tcp_data: Data within TCP packet
-    :param tcp_window: Size of Window field in TCP header
+    :param tcp: TCP packet
     :param syn: SYN count
     :param syn_flag: Presence of SYN flag in packet
     :param ack_flag: Presence of ACK flag in packet
@@ -38,11 +37,18 @@ def new_tcp_connection(timestamp, tcp_data, tcp_window, syn, syn_flag, ack_flag,
     packets_sent = []
     packets_received = []
     window_sizes = []
+    sequence_num = {}
     start_timestamp = None
+
+    # Retrieve info from TCP packet
+    tcp_data = tcp.data
+    tcp_window = tcp.win
 
     if syn_flag:
         # First SYN encounter
         syn = 1
+        # 'sequence number': 'timestamp' key-value pair to dict
+        sequence_num[tcp.seq] = datetime.datetime.utcfromtimestamp(timestamp)
         # Get packet's timestamp
         start_timestamp = datetime.datetime.utcfromtimestamp(timestamp)
         packets_sent.append(tcp_data)
@@ -60,12 +66,18 @@ def new_tcp_connection(timestamp, tcp_data, tcp_window, syn, syn_flag, ack_flag,
 
     return tcp_connection.TCPConnection(syn_count=syn,
                                         fin_count=fin,
+                                        sequence_encountered=sequence_num,
+                                        rtt=None,
                                         reset_flag=reset_status,
                                         start_time=start_timestamp,
                                         end_time=None,
                                         window_sizes=window_sizes,
                                         sent_packets=packets_sent,
                                         recvd_packets=packets_received)
+
+
+def tcp_rtt_analysis(ack_num, ack_timestamp):
+    pass
 
 
 def tcp_connection_analysis(packet_capture):
@@ -115,7 +127,7 @@ def tcp_connection_analysis(packet_capture):
         # If connections dict is empty, add initial key-value pair.
         if bool(connections) is False:
             # New connection, initiate as such.
-            connections[connection_tuple] = new_tcp_connection(timestamp, tcp.data, tcp.win, syn, syn_flag,
+            connections[connection_tuple] = new_tcp_connection(timestamp, tcp, syn, syn_flag,
                                                                ack_flag, fin, fin_flag, reset_status, rst_flag)
 
         # Does connection tuple exist as key in dictionary?
@@ -169,11 +181,11 @@ def tcp_connection_analysis(packet_capture):
                 connections[reverse_connection_tuple] = value
             else:
                 # New connection, initiate as such
-                connections[connection_tuple] = new_tcp_connection(timestamp, tcp.data, tcp.win, syn, syn_flag,
+                connections[connection_tuple] = new_tcp_connection(timestamp, tcp, syn, syn_flag,
                                                                    ack_flag, fin, fin_flag, reset_status, rst_flag)
         else:
             # New connection, initiate as such
-            connections[connection_tuple] = new_tcp_connection(timestamp, tcp.data, tcp.win, syn, syn_flag,
+            connections[connection_tuple] = new_tcp_connection(timestamp, tcp, syn, syn_flag,
                                                                ack_flag, fin, fin_flag, reset_status, rst_flag)
 
     return connections
@@ -223,9 +235,6 @@ def main():
         print("Destination Address: {0}".format(ip_tuple[2]))
         print("Source Port: {0}".format(ip_tuple[1]))
         print("Destination Port: {0}".format(ip_tuple[3]))
-
-        # Evaluate if connection is complete
-        # complete_status = connect_item.tcp_complete()
 
         # Output the following if connection is complete
         if connect_item.tcp_complete() is True:
