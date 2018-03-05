@@ -26,3 +26,11 @@
     ```
     
     Where **[capture_file]** is the name of the packet capture file to be analyzed.
+    
+## Notes
+* When printing out **Start time** and **End time** to console, the date & time of packet capture is printed out, 
+not the time from when the packet capture began (i.e. in seconds)
+
+* If multiple reset flags are encountered in the same connection, as per the assignment spec, they are not counted.
+Instead, a boolean flag (True/False) is utilized to determine if a connection has ever been reset. If it is, this flag
+is set to **True**, with no possibility of changing it back to **False**.
