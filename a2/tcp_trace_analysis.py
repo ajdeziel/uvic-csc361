@@ -6,8 +6,9 @@ Created on: 2018-02-02
 
 Analyzes a packet capture file (pcap), and prints out respective statistics.
 
-https://github.com/jeffsilverm/dpkt_doc/blob/master/decode_tcp.py
-
+Utilizes the dpkt open source module.
+Source code: https://github.com/kbandla/dpkt
+Documentation: https://dpkt.readthedocs.io/en/latest/
 """
 
 import datetime
@@ -38,22 +39,26 @@ def new_tcp_connection(timestamp, tcp, syn, syn_flag, ack_flag, fin, fin_flag,
     packets_received = []
     window_sizes = []
     sequence_num = {}
+    rtt = []
     start_timestamp = None
 
     # Retrieve info from TCP packet
     tcp_data = tcp.data
     tcp_window = tcp.win
 
+    packet_timestamp = datetime.datetime.utcfromtimestamp(timestamp)
+
     if syn_flag:
         # First SYN encounter
         syn = 1
         # 'sequence number': 'timestamp' key-value pair to dict
-        sequence_num[tcp.seq] = datetime.datetime.utcfromtimestamp(timestamp)
+        sequence_num[tcp.seq] = packet_timestamp
         # Get packet's timestamp
-        start_timestamp = datetime.datetime.utcfromtimestamp(timestamp)
+        start_timestamp = packet_timestamp
         packets_sent.append(tcp_data)
     if ack_flag:
         packets_sent.append(tcp_data)
+        rtt.append(packet_timestamp)
     if fin_flag:
         fin = 1
         packets_received.append(tcp_data)
