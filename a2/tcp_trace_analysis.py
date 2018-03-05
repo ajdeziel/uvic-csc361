@@ -353,9 +353,9 @@ def main():
 
     print("\n")
 
-    print("Minimum RTT values including both send/received: {0:.6f}".format(connection_rtt[0]))
-    print("Mean RTT values including both send/received: {0:.6f}".format(mean_rtt))
-    print("Maximum RTT values including both send/received: {0:.6f}".format(connection_rtt[-1]))
+    print("Minimum RTT values including both send/received: {0:.6f} seconds".format(connection_rtt[0]))
+    print("Mean RTT values including both send/received: {0:.6f} seconds".format(mean_rtt))
+    print("Maximum RTT values including both send/received: {0:.6f} seconds".format(connection_rtt[-1]))
 
     print("\n")
 
