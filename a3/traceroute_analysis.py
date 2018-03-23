@@ -100,15 +100,16 @@ def get_router_ip(packet_dict, traceroute_src, traceroute_dest):
 
 def get_protocols(packet_dict):
     """
-
-    :param packet_dict:
-    :return:
+    Retrieve protocols found in traceroute packet capture.
+    :param packet_dict: Dictionary of captured packets
+    :return: List of unique dictionaries of protocols utilized
     """
     protocol_list = []
     for ip_tuple, packet in packet_dict.items():
-        protocol_list.append(packet.protocol)
+        if packet.protocol not in protocol_list:
+            protocol_list.append(packet.protocol)
 
-    return set(protocol_list)
+    return protocol_list
 
 
 def main():
@@ -128,8 +129,6 @@ def main():
         # Check if packet is of type IP.
         # Otherwise, continue.
         if isinstance(eth.data, dpkt.ip.IP):
-            ip_proto = {}
-
             ip = eth.data
             ip_src = socket.inet_ntoa(ip.src)
             ip_dest = socket.inet_ntoa(ip.dst)
@@ -138,15 +137,15 @@ def main():
             proto_num = ip.p
             proto_name = ip.get_proto(proto_num).__name__
 
-            ip_proto[ip.p] = proto_name
+            ip_proto = dict(id=ip.p, protocol=proto_name)
             parsed_packets.append(traceroute_parse.TraceroutePacket(ip_src, ip_dest, packet_timestamp, ip_proto, ip))
         else:
             continue
 
     traceroute_ip = get_ip(parsed_packets)
-    # ip_trace_packets = packet_analysis(parsed_packets)
-    # routers = get_router_ip(ip_trace_packets, traceroute_ip[0], traceroute_ip[1])
-    # protocols
+    # analyzed_packets = packet_analysis(parsed_packets)
+    # routers = get_router_ip(parsed_packets, traceroute_ip[0], traceroute_ip[1])
+    # protocols = get_protocols(parsed_packets)
 
         # # If packet is ICMP, handle as Windows packet
         # if isinstance(ip.data, dpkt.icmp.ICMP):
@@ -169,19 +168,18 @@ def main():
         #     continue
 
     # TODO: IP Protocol Analysis - Output
-    # for packet in ip_trace_packets:
     print("The IP address of the source node: " + traceroute_ip[0])
     print("The IP address of ultimate destination node: " + traceroute_ip[1])
 
-    # router_count = 0
+    # router_count = 1
     # print("The IP addresses of the intermediate destination nodes: ")
-
     # for router_ip in routers:
-    #     print("Router {0}: {1}".format(router_count, router_ip))
+    #     print("\tRouter {0}: {1}".format(router_count, router_ip))
+    #     router_count += 1
     #
     # print("The values in the protocol field of IP headers: ")
-    # print("id: ")
-    # print("id: ")
+    # for protocol in protocols:
+    #     print("{0}: {1}".format(protocol['id'], protocol['protocol']))
     #
     # print("\n")
     #
