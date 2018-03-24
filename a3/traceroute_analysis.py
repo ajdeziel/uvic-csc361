@@ -53,7 +53,7 @@ def packet_analysis(packets):
                 if ip_tuple not in filtered_packets.keys():
                     # Create new key
                     filtered_packets[ip_tuple] = traceroute_connection.TracerouteConnection(packet.timestamp,
-                                                                                            rtt.append(packet.timestamp))
+                                                                                            packet.protocol)
         elif isinstance(packet.data, dpkt.udp.UDP):
             # UDP packet encountered, treat as Linux
             pass

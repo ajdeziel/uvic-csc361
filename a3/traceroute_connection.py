@@ -10,6 +10,7 @@ Data structure to store IP connection data.
 import statistics
 
 class TracerouteConnection():
-    def __init__(self, timestamp, protocol):
+    def __init__(self, timestamp, protocol, ttl_current):
         self.timestamp = timestamp
         self.protocol = protocol
+        self.ttl_current = ttl_current

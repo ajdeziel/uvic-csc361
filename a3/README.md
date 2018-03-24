@@ -5,7 +5,7 @@
 ##### Created on: 2018-03-23
 
 ## Build Dependencies
-* Python 3.6.4 or higher
+* Python 3.6 or higher
 * dpkt 1.9.1
 
 
