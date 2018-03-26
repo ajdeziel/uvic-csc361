@@ -3,3 +3,6 @@
 
 # Assignment reference files
 *.pdf
+
+# Python cache files
+__pycache__
