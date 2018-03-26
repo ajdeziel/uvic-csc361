@@ -6,6 +6,9 @@ Created on: 2018-03-23
 
 Data structure to store parsed packet from traceroute capture.
 """
+
+import dpkt
+
 class TraceroutePacket:
     def __init__(self, src_ip, dest_ip, timestamp, protocol, data):
         self.src_ip = src_ip
