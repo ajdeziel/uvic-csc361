@@ -74,7 +74,7 @@ def packet_analysis(packets, origin_ip):
         else:
             if flipped_ip is True:
                 # Flip src and dest ip around if origin is destination (i.e. reverse ip_tuple)
-                reverse_key = (src_ip, dest_ip)
+                reverse_key = (dest_ip, src_ip)
             else:
                 reverse_key = (dest_ip, src_ip)
 
@@ -84,12 +84,12 @@ def packet_analysis(packets, origin_ip):
                 #     packet_dest_addr = socket.inet_ntoa(packet.data.data.dst)
                 #     origin_ip = (packet_origin_addr, packet_dest_addr)
 
-                if isinstance(ip.data.data, dpkt.udp.UDP):
+                if isinstance(ip.data.data.data.data, dpkt.udp.UDP):
                     # Nested UDP packet, treat as Linux
                     value_sent = filtered_packets[key]
                     value_recvd = filtered_packets[reverse_key]
 
-                    udp = packet.data.data
+                    udp = ip.data.data.data.data
                     src_port = udp.sport
                     dest_port = udp.dport
 
@@ -103,8 +103,7 @@ def packet_analysis(packets, origin_ip):
                     value_sent = filtered_packets[key]
                     value_recvd = filtered_packets[reverse_key]
 
-                    nested_ip = packet.data.data
-                    seq_num = nested_ip.seq
+                    seq_num = ip.data.data.data.data.seq
 
                     value_sent.sent.append((seq_num, packet.timestamp))
                     value_recvd.recvd.append((seq_num, packet.timestamp))
@@ -139,9 +138,6 @@ def packet_analysis(packets, origin_ip):
                         value.sent.append((src_port, dest_port, packet.timestamp))
 
                         filtered_packets[key] = value
-
-
-                    pass
                 else:
                     # ip_tuple does exist as key in filtered_packets
                     if flipped_ip is True:
