@@ -72,44 +72,54 @@ def packet_analysis(packets, origin_ip):
             filtered_packets[key] = new_traceroute
         # Find the probes, and then map the responses to the respective probes
         else:
-            if flipped_ip is True:
-                # Flip src and dest ip around if origin is destination (i.e. reverse ip_tuple)
-                reverse_key = (dest_ip, src_ip)
-            else:
-                reverse_key = (dest_ip, src_ip)
+            # if flipped_ip is True:
+            #     # Flip src and dest ip around if origin is destination (i.e. reverse ip_tuple)
+            #     reverse_key = (dest_ip, src_ip)
+            # else:
+            #     reverse_key = (dest_ip, src_ip)
 
             if isinstance(ip.data, dpkt.icmp.ICMP):
-                # if isinstance(ip.data.data, dpkt.udp.IP):
-                #     packet_origin_addr = socket.inet_ntoa(packet.data.data.src)
-                #     packet_dest_addr = socket.inet_ntoa(packet.data.data.dst)
-                #     origin_ip = (packet_origin_addr, packet_dest_addr)
 
                 if isinstance(ip.data.data.data.data, dpkt.udp.UDP):
-                    # Nested UDP packet, treat as Linux
-                    value_sent = filtered_packets[key]
-                    value_recvd = filtered_packets[reverse_key]
+                    # Nested UDP packet in ICMP response
+                    # Treat as Linux response packet
+                    value_recvd = filtered_packets[key]
+                    # value_sent = filtered_packets[key]
+                    # value_recvd = filtered_packets[reverse_key]
 
                     udp = ip.data.data.data.data
                     src_port = udp.sport
                     dest_port = udp.dport
 
-                    value_sent.sent.append((src_port, dest_port, packet.timestamp))
-                    value_recvd.recvd.append((src_port, dest_port, packet.timestamp))
+                    if flipped_ip is True:
+                        if packet.timestamp is not None:
+                            value.recvd.append((src_port, dest_port, packet.timestamp))
+                        else:
+                            value.recvd.append((src_port, dest_port, 0))                        
 
-                    filtered_packets[key] = value_sent
-                    filtered_packets[reverse_key] = value_recvd
+                    # value_sent.sent.append((src_port, dest_port, packet.timestamp))
+                    # value_recvd.recvd.append((src_port, dest_port, packet.timestamp))
+
+                    filtered_packets[key] = value
+                    # filtered_packets[key] = value_sent
+                    # filtered_packets[reverse_key] = value_recvd
                 else:
-                    # Check like Windows packet
-                    value_sent = filtered_packets[key]
-                    value_recvd = filtered_packets[reverse_key]
+                    # Pure ICMP response
+                    # Treat as Windows packet
+                    value = filtered_packets[key]
+                    # value_sent = filtered_packets[key]
+                    # value_recvd = filtered_packets[reverse_key]
 
                     seq_num = ip.data.data.data.data.seq
 
-                    value_sent.sent.append((seq_num, packet.timestamp))
-                    value_recvd.recvd.append((seq_num, packet.timestamp))
+                    if flipped_ip is True:
+                        value.sent.append((seq_num, packet.timestamp))
+                    else:
+                        value.recvd.append((seq_num, packet.timestamp))
 
-                    filtered_packets[key] = value_sent
-                    filtered_packets[reverse_key] = value_recvd
+                    filtered_packets[key] = value
+                    # filtered_packets[key] = value_sent
+                    # filtered_packets[reverse_key] = value_recvd
 
             elif isinstance(ip.data, dpkt.udp.UDP):
                 # UDP packet encountered, treat as Linux
