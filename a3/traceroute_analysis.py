@@ -55,10 +55,14 @@ def packet_analysis(packets, origin_ip):
             key = (src_ip, dest_ip)
 
         # Case 1: New traceroute
-        if not filtered_packets:
+        if not filtered_packets or key not in filtered_packets.keys():
             if isinstance(ip.data, dpkt.icmp.ICMP):
-                # Windows traceroute packet capture
-                new_traceroute = make_new_traceroute(packet, "ICMP")
+                if isinstance(ip.data.data.data.data, dpkt.udp.UDP):
+                    # Linux traceroute packet capture
+                    new_traceroute = make_new_traceroute(packet, "UDP")
+                else:
+                    # Windows traceroute packet capture
+                    new_traceroute = make_new_traceroute(packet, "ICMP")
             elif isinstance(ip.data, dpkt.udp.UDP):
                 # Linux traceroute packet capture
                 new_traceroute = make_new_traceroute(packet, "UDP")
@@ -180,8 +184,12 @@ def make_new_traceroute(packet, packet_type):
     # num_fragments - check out how to determine number of fragments
 
     if packet_type is "UDP":
-        sent.append((ip.data.sport, ip.data.dport, packet.timestamp))
-        new_dict_item = LinuxTracerouteConnection(start_time, ttl, offset, sent, recvd)
+        if isinstance(ip.data, dpkt.udp.UDP):
+            sent.append((ip.data.sport, ip.data.dport, packet.timestamp))
+            new_dict_item = LinuxTracerouteConnection(start_time, ttl, offset, sent, recvd)
+        else:
+            sent.append((ip.data.data.data.data.sport, ip.data.data.data.data.sport, packet.timestamp))
+            new_dict_item = LinuxTracerouteConnection(start_time, ttl, offset, sent, recvd)
 
     if packet_type is "ICMP":
         # Use packet.data.data.seq for tuple creation
