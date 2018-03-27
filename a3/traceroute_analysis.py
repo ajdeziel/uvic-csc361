@@ -48,12 +48,14 @@ def packet_analysis(packets, origin_ip):
         ip = packet.data
 
         if dest_ip == origin_ip:
-            new_key = (dest_ip, src_ip)
+            # Flip src and dest ip around if origin is destination (i.e. reverse ip_tuple)
+            key = (dest_ip, src_ip)
+            flipped_ip = True
         else:
-            new_key = (src_ip, dest_ip)
+            key = (src_ip, dest_ip)
 
         # Case 1: New traceroute
-        if not filtered_packets or new_key not in filtered_packets.keys():
+        if not filtered_packets:
             if isinstance(ip.data, dpkt.icmp.ICMP):
                 # Windows traceroute packet capture
                 new_traceroute = make_new_traceroute(packet, "ICMP")
@@ -63,15 +65,14 @@ def packet_analysis(packets, origin_ip):
             else:
                 continue
 
-            filtered_packets[new_key] = new_traceroute
+            filtered_packets[key] = new_traceroute
         # Find the probes, and then map the responses to the respective probes
         else:
-            if dest_ip == origin_ip:
+            if flipped_ip is True:
                 # Flip src and dest ip around if origin is destination (i.e. reverse ip_tuple)
-                ip_tuple = (dest_ip, src_ip)
-                flipped_ip = True
+                reverse_key = (src_ip, dest_ip)
             else:
-                ip_tuple = (src_ip, dest_ip)
+                reverse_key = (dest_ip, src_ip)
 
             if isinstance(ip.data, dpkt.icmp.ICMP):
                 # if isinstance(ip.data.data, dpkt.udp.IP):
@@ -81,8 +82,8 @@ def packet_analysis(packets, origin_ip):
 
                 if isinstance(ip.data.data, dpkt.udp.UDP):
                     # Nested UDP packet, treat as Linux
-                    value_sent = filtered_packets[ip_tuple]
-                    value_recvd = filtered_packets[origin_ip]
+                    value_sent = filtered_packets[key]
+                    value_recvd = filtered_packets[reverse_key]
 
                     udp = packet.data.data
                     src_port = udp.sport
@@ -91,12 +92,12 @@ def packet_analysis(packets, origin_ip):
                     value_sent.sent.append((src_port, dest_port, packet.timestamp))
                     value_recvd.recvd.append((src_port, dest_port, packet.timestamp))
 
-                    filtered_packets[ip_tuple] = value_sent
-                    filtered_packets[origin_ip] = value_recvd
+                    filtered_packets[key] = value_sent
+                    filtered_packets[reverse_key] = value_recvd
                 else:
                     # Check like Windows packet
-                    value_sent = filtered_packets[ip_tuple]
-                    value_recvd = filtered_packets[origin_ip]
+                    value_sent = filtered_packets[key]
+                    value_recvd = filtered_packets[reverse_key]
 
                     nested_ip = packet.data.data
                     seq_num = nested_ip.seq
@@ -104,15 +105,15 @@ def packet_analysis(packets, origin_ip):
                     value_sent.sent.append((seq_num, packet.timestamp))
                     value_recvd.recvd.append((seq_num, packet.timestamp))
 
-                    filtered_packets[ip_tuple] = value_sent
-                    filtered_packets[origin_ip] = value_recvd
+                    filtered_packets[key] = value_sent
+                    filtered_packets[reverse_key] = value_recvd
 
             elif isinstance(ip.data, dpkt.udp.UDP):
                 # UDP packet encountered, treat as Linux
-                if ip_tuple not in filtered_packets:
+                if key not in filtered_packets:
                     # ip_tuple does not exist as key in filtered_packets
                     if flipped_ip is True:
-                        value = filtered_packets[ip_tuple]
+                        value = filtered_packets[key]
 
                         # udp = ip.data.timeexceed.data.icmp.data
                         udp = ip.data
@@ -121,10 +122,10 @@ def packet_analysis(packets, origin_ip):
 
                         value.recvd.append((src_port, dest_port, packet.timestamp))
 
-                        filtered_packets[ip_tuple] = value
+                        filtered_packets[key] = value
 
                     else:
-                        value = filtered_packets[ip_tuple]
+                        value = filtered_packets[key]
 
                         # udp = ip.data.timeexceed.data.icmp.data
                         udp = ip.data
@@ -133,14 +134,14 @@ def packet_analysis(packets, origin_ip):
 
                         value.sent.append((src_port, dest_port, packet.timestamp))
 
-                        filtered_packets[ip_tuple] = value
+                        filtered_packets[key] = value
 
 
                     pass
                 else:
                     # ip_tuple does exist as key in filtered_packets
                     if flipped_ip is True:
-                        value = filtered_packets[ip_tuple]
+                        value = filtered_packets[key]
 
                         # udp = ip.data.timeexceed.data.icmp.data
                         udp = ip.data
@@ -149,10 +150,10 @@ def packet_analysis(packets, origin_ip):
 
                         value.recvd.append((src_port, dest_port, packet.timestamp))
 
-                        filtered_packets[ip_tuple] = value
+                        filtered_packets[key] = value
 
                     else:
-                        value = filtered_packets[ip_tuple]
+                        value = filtered_packets[key]
 
                         udp = ip.data
                         src_port = udp.sport
@@ -160,7 +161,7 @@ def packet_analysis(packets, origin_ip):
 
                         value.sent.append((src_port, dest_port, packet.timestamp))
 
-                        filtered_packets[ip_tuple] = value
+                        filtered_packets[key] = value
             else:
                 continue
 
@@ -171,12 +172,12 @@ def packet_analysis(packets, origin_ip):
 def make_new_traceroute(packet, packet_type):
     sent = []
     recvd = []
-    start_time = packet.timestamp
-    ttl = packet.data.ttl
-    offset = packet.data.off
-    # num_fragments - check out how to determine number of fragments
 
+    start_time = packet.timestamp
     ip = packet.data
+    ttl = ip.ttl
+    offset = ip.off
+    # num_fragments - check out how to determine number of fragments
 
     if packet_type is "UDP":
         sent.append((ip.data.sport, ip.data.dport, packet.timestamp))
@@ -185,8 +186,9 @@ def make_new_traceroute(packet, packet_type):
     if packet_type is "ICMP":
         # Use packet.data.data.seq for tuple creation
         # When accessing TTL Exceed, use ip.data.timeexceed.data.icmp.data.seq
-        sent.append((ip.data.data.seq, packet.timestamp))
-        new_dict_item = WindowsTracerouteConnection(start_time, ttl, offset, sent, recvd)
+        if ip.data.type == dpkt.icmp.ICMP_TIMEXCEED:
+            sent.append((ip.data.data.data.data.seq, packet.timestamp))
+            new_dict_item = WindowsTracerouteConnection(start_time, ttl, offset, sent, recvd)
 
     return new_dict_item
 
@@ -251,7 +253,6 @@ def main():
     packet_capture = dpkt.pcapng.Reader(capture_file)
 
     parsed_packets = []
-    analyzed_packets = {}
 
     for timestamp, raw_packet in packet_capture:
         eth = dpkt.ethernet.Ethernet(raw_packet)
@@ -316,7 +317,7 @@ def main():
     # print("")
     #
     # Print average RTT between origin and intermediate IPs, origin and ultimate destination IPs.
-    for ip_key, trace_object in analyzed_packets:
+    for ip_key, trace_object in analyzed_packets.items():
         rtt_stats = trace_object.rtt()
         print("The avg RRT between {0} and {1} is: {2}, the s.d. is: {3}".format(ip_key[0], ip_key[1],
                                                                                  rtt_stats[0], rtt_stats[1]))
