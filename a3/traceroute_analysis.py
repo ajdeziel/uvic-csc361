@@ -92,10 +92,7 @@ def packet_analysis(packets, origin_ip):
                     dest_port = udp.dport
 
                     if flipped_ip is True:
-                        if packet.timestamp is not None:
-                            value.recvd.append((src_port, dest_port, packet.timestamp))
-                        else:
-                            value.recvd.append((src_port, dest_port, 0))                        
+                        value.recvd.append((src_port, dest_port, packet.timestamp))                      
 
                     # value_sent.sent.append((src_port, dest_port, packet.timestamp))
                     # value_recvd.recvd.append((src_port, dest_port, packet.timestamp))
@@ -333,7 +330,7 @@ def main():
     # Print average RTT between origin and intermediate IPs, origin and ultimate destination IPs.
     for ip_key, trace_object in analyzed_packets.items():
         rtt_stats = trace_object.rtt()
-        print("The avg RRT between {0} and {1} is: {2}, the s.d. is: {3}".format(ip_key[0], ip_key[1],
+        print("The avg RRT between {0} and {1} is: {2:.6f} ms, the s.d. is: {3:.6f} ms".format(ip_key[0], ip_key[1],
                                                                                  rtt_stats[0], rtt_stats[1]))
 
 
