@@ -83,18 +83,21 @@ def packet_analysis(packets, origin_ip):
                     dest_port = udp.dport
 
                     if flipped_ip is True:
-                        value.recvd.append((src_port, dest_port, packet.timestamp))
+                        value.rtt_raw.append((src_port, dest_port, packet.timestamp))
                 else:
                     # Pure ICMP response
                     # Treat as Windows packet
                     value = filtered_packets[key]
 
-                    seq_num = ip.data.data.data.data.seq
+                    if ip.data.type == dpkt.icmp.ICMP_TIMEXCEED:
+                        seq_num = ip.icmp.timeexceed.ip.icmp.echo.seq
+                    else:
+                        seq_num = ip.icmp.echo.seq
 
                     if flipped_ip is True:
-                        value.sent.append((seq_num, packet.timestamp))
+                        value.rtt_raw.append((seq_num, packet.timestamp))
                     else:
-                        value.recvd.append((seq_num, packet.timestamp))
+                        value.rtt_raw.append((seq_num, packet.timestamp))
 
                 last_offset = ip.off
                 filtered_packets[key] = value
@@ -110,7 +113,7 @@ def packet_analysis(packets, origin_ip):
                         src_port = udp.sport
                         dest_port = udp.dport
 
-                        value.recvd.append((src_port, dest_port, packet.timestamp))
+                        value.rtt_raw.append((src_port, dest_port, packet.timestamp))
                     else:
                         value = filtered_packets[key]
 
@@ -119,7 +122,7 @@ def packet_analysis(packets, origin_ip):
                         src_port = udp.sport
                         dest_port = udp.dport
 
-                        value.sent.append((src_port, dest_port, packet.timestamp))
+                        value.rtt_raw.append((src_port, dest_port, packet.timestamp))
 
                     filtered_packets[key] = value
                 else:
@@ -132,7 +135,7 @@ def packet_analysis(packets, origin_ip):
                         src_port = udp.sport
                         dest_port = udp.dport
 
-                        value.recvd.append((src_port, dest_port, packet.timestamp))
+                        value.rtt_raw.append((src_port, dest_port, packet.timestamp))
                     else:
                         value = filtered_packets[key]
 
@@ -140,7 +143,7 @@ def packet_analysis(packets, origin_ip):
                         src_port = udp.sport
                         dest_port = udp.dport
 
-                        value.sent.append((src_port, dest_port, packet.timestamp))
+                        value.rtt_raw.append((src_port, dest_port, packet.timestamp))
 
                     filtered_packets[key] = value
                 last_offset = ip.off
@@ -152,8 +155,7 @@ def packet_analysis(packets, origin_ip):
 
 
 def make_new_traceroute(packet, packet_type):
-    sent = []
-    recvd = []
+    rtt_raw = []
 
     start_time = packet.timestamp
     ip = packet.data
@@ -163,28 +165,23 @@ def make_new_traceroute(packet, packet_type):
 
     if packet_type is "UDP":
         if isinstance(ip.data, dpkt.udp.UDP):
-            sent.append((ip.data.sport, ip.data.dport, packet.timestamp))
-            new_dict_item = LinuxTracerouteConnection(start_time, ttl, offset, sent, recvd)
+            rtt_raw.append((ip.data.sport, ip.data.dport, packet.timestamp))
+            new_dict_item = LinuxTracerouteConnection(start_time, ttl, offset, rtt_raw)
         else:
-            sent.append((ip.data.data.data.data.sport, ip.data.data.data.data.sport, packet.timestamp))
-            new_dict_item = LinuxTracerouteConnection(start_time, ttl, offset, sent, recvd)
+            rtt_raw.append((ip.data.data.data.data.sport, ip.data.data.data.data.sport, packet.timestamp))
+            new_dict_item = LinuxTracerouteConnection(start_time, ttl, offset, rtt_raw)
 
     if packet_type is "ICMP":
         # Use packet.data.data.seq for tuple creation
-        # When accessing TTL Exceed, use ip.data.timeexceed.data.icmp.data.seq
+        # When accessing TTL Exceed, use ip.icmp.timeexceed.ip.icmp.echo.seq
         if ip.data.type == dpkt.icmp.ICMP_TIMEXCEED:
-            sent.append((ip.data.data.data.data.seq, packet.timestamp))
-            new_dict_item = WindowsTracerouteConnection(start_time, ttl, offset, sent, recvd)
+            rtt_raw.append((ip.icmp.timeexceed.ip.icmp.echo.seq, packet.timestamp))
+            new_dict_item = WindowsTracerouteConnection(start_time, ttl, offset, rtt_raw)
+        else:
+            rtt_raw.append((ip.icmp.echo.seq, packet.timestamp))
+            new_dict_item = WindowsTracerouteConnection(start_time, ttl, offset, rtt_raw)
 
     return new_dict_item
-
-
-def linux_packet_analysis():
-    pass
-
-
-def windows_packet_analysis():
-    pass
 
 
 def get_router_ip(packet_dict, traceroute_src, traceroute_dest):
@@ -198,18 +195,9 @@ def get_router_ip(packet_dict, traceroute_src, traceroute_dest):
 
     # Unpack packet_dict and return keys into list literal
     ip_keys = [*packet_dict]
-    router_ip_list = []
 
-    for ip_address in ip_keys:
-        src = ip_address[0]
-        dest = ip_address[1]
-        if src not in router_ip_list or dest not in router_ip_list:
-            router_ip_list.append(src)
-            router_ip_list.append(dest)
-
-    for ip_address in router_ip_list:
-        if ip_address == traceroute_src or ip_address == traceroute_dest:
-            router_ip_list.remove(ip_address)
+    # Ignore origin/source and ultimate destination IPs when adding to router list
+    router_ip_list = [y for x, y in ip_keys if y != traceroute_src and y != traceroute_dest]
 
     return router_ip_list
 
@@ -267,6 +255,7 @@ def main():
         else:
             continue
 
+    # IP Protocol Analysis methods
     traceroute_ip = get_ip(parsed_packets)
     analyzed_packets = packet_analysis(parsed_packets, traceroute_ip[0])
     routers = get_router_ip(analyzed_packets, traceroute_ip[0], traceroute_ip[1])
@@ -277,7 +266,6 @@ def main():
     print("The IP address of the source node: {0}".format(traceroute_ip[0]))
     print("The IP address of ultimate destination node: {0}".format(traceroute_ip[1]))
 
-    # DONE-ish
     # Print all router IPs encountered in traceroute packet capture
     router_count = 1
     print("The IP addresses of the intermediate destination nodes: ")
